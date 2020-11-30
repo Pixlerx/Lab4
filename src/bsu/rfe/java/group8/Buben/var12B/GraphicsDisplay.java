@@ -8,7 +8,6 @@ import java.awt.Graphics2D;
 import java.awt.Paint;
 import java.awt.Stroke;
 import java.awt.font.FontRenderContext;
-import java.awt.geom.Ellipse2D;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
@@ -36,17 +35,17 @@ public class GraphicsDisplay extends JPanel{
     private Font axisFont;
     public GraphicsDisplay() {
         // Цвет заднего фона области отображения - белый
-        setBackground(Color.WHITE);
+        setBackground(Color.white);
         // Сконструировать необходимые объекты, используемые в рисовании
         // Перо для рисования графика
-        graphicsStroke = new BasicStroke(2.0f, BasicStroke.CAP_BUTT,
-                BasicStroke.JOIN_ROUND, 10.0f, null, 0.0f);
+        graphicsStroke = new BasicStroke(5.0f, BasicStroke.CAP_BUTT,
+                BasicStroke.JOIN_ROUND, 10.0f, new float[] {30, 10, 20, 10, 10, 10, 20, 10}, 0.0f); //24,6,12,6,6,6,12,6
                 // Перо для рисования осей координат
         axisStroke = new BasicStroke(2.0f, BasicStroke.CAP_BUTT,
                 BasicStroke.JOIN_MITER, 10.0f, null, 0.0f);
                 // Перо для рисования контуров маркеров
-        markerStroke = new BasicStroke(1.0f, BasicStroke.CAP_BUTT,
-                BasicStroke.JOIN_MITER, 10.0f, null, 0.0f);
+        markerStroke = new BasicStroke(2.0f, BasicStroke.CAP_BUTT,
+                BasicStroke.JOIN_MITER, 50.0f, null, 0.0f);
                 // Шрифт для подписей осей координат
         axisFont = new Font("Serif", Font.BOLD, 36);
     }
@@ -78,7 +77,7 @@ public class GraphicsDisplay extends JPanel{
         // Шаг 2 - Если данные графика не загружены (при показе компонента при запуске программы) - ничего не делать
         if (graphicsData==null || graphicsData.length==0) return;
         // Шаг 3 - Определить минимальное и максимальное значения для координат X и Y
-        // Это необходимо для определения области пространства, подлежащей отображению
+        // Это необходимо для определения области пространств9а, подлежащей отображению
         // Еe верхний левый угол это (minX, maxY) - правый нижний это (maxX, minY)
         minX = graphicsData[0][0];
         maxX = graphicsData[graphicsData.length-1][0];
@@ -99,7 +98,7 @@ public class GraphicsDisplay extends JPanel{
         */
         double scaleX = getSize().getWidth() / (maxX - minX);
         double scaleY = getSize().getHeight() / (maxY - minY);
-        // Шаг 5 - Чтобы изображение было неискажѐнным - масштаб должен быть одинаков
+        // Шаг 5 - Чтобы изображение было неискажённым - масштаб должен быть одинаков
         // Выбираем за основу минимальный
         scale = Math.min(scaleX, scaleY);
         // Шаг 6 - корректировка границ отображаемой области согласно выбранному масштабу
@@ -121,8 +120,7 @@ public class GraphicsDisplay extends JPanel{
         }
         if (scale==scaleY) {
             // Если за основу был взят масштаб по оси Y, действовать по аналогии
-            double xIncrement = (getSize().getWidth()/scale - (maxX -
-                    minX))/2;
+            double xIncrement = (getSize().getWidth()/scale - (maxX - minX))/2;
             maxX += xIncrement;
             minX -= xIncrement;
         }
@@ -151,7 +149,7 @@ public class GraphicsDisplay extends JPanel{
         // Выбрать линию для рисования графика
         canvas.setStroke(graphicsStroke);
         // Выбрать цвет линии
-        canvas.setColor(Color.RED);
+        canvas.setColor(Color.BLUE);
         /* Будем рисовать линию графика как путь, состоящий из множества
         сегментов (GeneralPath)
         * Начало пути устанавливается в первую точку графика, после чего
@@ -176,6 +174,18 @@ public class GraphicsDisplay extends JPanel{
         // Отобразить график
         canvas.draw(graphics);
     }
+    private boolean markPoint(double y) {
+        int n = (int) y;
+        if (n < 0)
+            n *= (-1);
+        while (n != 0) {
+            int q = n - (n / 10) * 10;
+            if (q % 2 != 0)
+                return false;
+            n = n / 10;
+        }
+        return true;
+    }
     // Отображение маркеров точек, по которым рисовался график
     protected void paintMarkers(Graphics2D canvas) {
         // Шаг 1 - Установить специальное перо для черчения контуров маркеров
@@ -186,36 +196,40 @@ public class GraphicsDisplay extends JPanel{
         canvas.setPaint(Color.RED);
         // Шаг 2 - Организовать цикл по всем точкам графика
         for (Double[] point: graphicsData) {
-            // Инициализировать эллипс как объект для представления маркера
-            Ellipse2D.Double marker = new Ellipse2D.Double();
-            /* Эллипс будет задаваться посредством указания координат
-            его центра
-            и угла прямоугольника, в который он вписан */
+            if (markPoint(point[1])) {
+                canvas.setColor(Color.BLUE);
+            } else {
+                canvas.setColor(Color.RED);
+            }
+            // Инициализировать эллипс как объект для представления маркер
+            GeneralPath path = new GeneralPath();
             // Центр - в точке (x,y)
             Point2D.Double center = xyToPoint(point[0], point[1]);
-            // Угол прямоугольника - отстоит на расстоянии (3,3)
-            Point2D.Double corner = shiftPoint(center, 3, 3);
-            // Задать эллипс по центру и диагонали
-            marker.setFrameFromCenter(center, corner);
-            canvas.draw(marker); // Начертить контур маркера
-            canvas.fill(marker); // Залить внутреннюю область маркера
+
+            path.moveTo(center.x - 5, center.y);
+            path.lineTo(center.x , center.y + 5);
+            path.lineTo(center.x + 5, center.y);
+            path.lineTo(center.x, center.y - 5);
+            path.closePath();
+            canvas.draw(path);
         }
     }
+
     // Метод, обеспечивающий отображение осей координат
     protected void paintAxis(Graphics2D canvas) {
         // Установить особое начертание для осей
         canvas.setStroke(axisStroke);
-        // Оси рисуются чѐрным цветом
+        // Оси рисуются чёрным цветом
         canvas.setColor(Color.BLACK);
-        // Стрелки заливаются чѐрным цветом
+        // Стрелки заливаются чёрным цветом
         canvas.setPaint(Color.BLACK);
         // Подписи к координатным осям делаются специальным шрифтом
         canvas.setFont(axisFont);
-                // Создать объект контекста отображения текста - для получения характеристик устройства (экрана)
-                FontRenderContext context = canvas.getFontRenderContext();
-                // Определить, должна ли быть видна ось Y на графике
+        // Создать объект контекста отображения текста - для получения характеристик устройства (экрана)
+        FontRenderContext context = canvas.getFontRenderContext();
+        // Определить, должна ли быть видна ось Y на графике
         if (minX<=0.0 && maxX>=0.0) {
-        // Она должна быть видна, если левая граница показываемой области (minX) <= 0.0,
+            // Она должна быть видна, если левая граница показываемой области (minX) <= 0.0,
             // а правая (maxX) >= 0.0
             // Сама ось - это линия между точками (0, maxY) и (0, minY)
             canvas.draw(new Line2D.Double(xyToPoint(0, maxY), xyToPoint(0, minY)));

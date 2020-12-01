@@ -36,7 +36,6 @@ public class GraphicsDisplay extends JPanel{
     private BasicStroke markerStroke;
     // Различные шрифты отображения надписей
     private Font axisFont;
-    private DecimalFormat formatter = (DecimalFormat) NumberFormat.getInstance();
     public GraphicsDisplay() {
         // Цвет заднего фона области отображения - белый
         setBackground(Color.white);
@@ -193,11 +192,8 @@ public class GraphicsDisplay extends JPanel{
     // Отображение маркеров точек, по которым рисовался график
     protected void paintMarkers(Graphics2D canvas)
     {
-        formatter.setMaximumFractionDigits(2);
-        DecimalFormatSymbols dottedDouble = formatter.getDecimalFormatSymbols();
-        dottedDouble.setDecimalSeparator('.');
-        formatter.setDecimalFormatSymbols(dottedDouble);
-
+        DecimalFormat tempX = new DecimalFormat("##.##");
+        DecimalFormat tempY = new DecimalFormat("##.##");
         canvas.setStroke(markerStroke);
         canvas.setColor(Color.BLACK);
         for (int i = 0; i < graphicsData.length; i++)
@@ -208,7 +204,7 @@ public class GraphicsDisplay extends JPanel{
                 FontRenderContext extr = canvas.getFontRenderContext();
                 Rectangle2D bounds = axisFont.getStringBounds("extr", extr);
                 Point2D.Double labelPos = xyToPoint(graphicsData[i][0], graphicsData[i][1]);
-                canvas.drawString("extr ("+ graphicsData[i][0] +" , " + graphicsData[i][1]+ " )", (float) labelPos.getX() + 10, (float) (labelPos.getY() - bounds.getY()));
+                canvas.drawString("extr ("+ tempX.format(graphicsData[i][0]) +" , " + tempY.format(graphicsData[i][1]) + " )", (float) labelPos.getX() + 10, (float) (labelPos.getY() - bounds.getY()));
             }
             else if (markPoint(graphicsData[i][1]))
                 canvas.setColor(Color.BLUE);

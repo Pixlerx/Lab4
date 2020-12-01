@@ -12,6 +12,9 @@ import java.awt.geom.GeneralPath;
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.text.NumberFormat;
 import javax.swing.JPanel;
 
 public class GraphicsDisplay extends JPanel{
@@ -33,6 +36,7 @@ public class GraphicsDisplay extends JPanel{
     private BasicStroke markerStroke;
     // Различные шрифты отображения надписей
     private Font axisFont;
+    private DecimalFormat formatter = (DecimalFormat) NumberFormat.getInstance();
     public GraphicsDisplay() {
         // Цвет заднего фона области отображения - белый
         setBackground(Color.white);
@@ -45,9 +49,9 @@ public class GraphicsDisplay extends JPanel{
                 BasicStroke.JOIN_MITER, 10.0f, null, 0.0f);
                 // Перо для рисования контуров маркеров
         markerStroke = new BasicStroke(2.0f, BasicStroke.CAP_BUTT,
-                BasicStroke.JOIN_MITER, 50.0f, null, 0.0f);
+                BasicStroke.JOIN_MITER, 90.0f, null, 0.0f);
                 // Шрифт для подписей осей координат
-        axisFont = new Font("Serif", Font.BOLD, 36);
+        axisFont = new Font("Serif", Font.BOLD, 15);
     }
     // Данный метод вызывается из обработчика элемента меню "Открыть файл с графиком"
     // главного окна приложения в случае успешной загрузки данных
@@ -82,7 +86,7 @@ public class GraphicsDisplay extends JPanel{
         minX = graphicsData[0][0];
         maxX = graphicsData[graphicsData.length-1][0];
         minY = graphicsData[0][1];
-        maxY = minY;
+        maxY = minY + 20;
         // Найти минимальное и максимальное значение функции
         for (int i = 1; i<graphicsData.length; i++) {
             if (graphicsData[i][1]<minY) {
@@ -149,7 +153,7 @@ public class GraphicsDisplay extends JPanel{
         // Выбрать линию для рисования графика
         canvas.setStroke(graphicsStroke);
         // Выбрать цвет линии
-        canvas.setColor(Color.BLUE);
+        canvas.setColor(Color.PINK);
         /* Будем рисовать линию графика как путь, состоящий из множества
         сегментов (GeneralPath)
         * Начало пути устанавливается в первую точку графика, после чего
@@ -187,30 +191,37 @@ public class GraphicsDisplay extends JPanel{
         return true;
     }
     // Отображение маркеров точек, по которым рисовался график
-    protected void paintMarkers(Graphics2D canvas) {
-        // Шаг 1 - Установить специальное перо для черчения контуров маркеров
-        canvas.setStroke(markerStroke);
-        // Выбрать красный цвета для контуров маркеров
-        canvas.setColor(Color.RED);
-        // Выбрать красный цвет для закрашивания маркеров внутри
-        canvas.setPaint(Color.RED);
-        // Шаг 2 - Организовать цикл по всем точкам графика
-        for (Double[] point: graphicsData) {
-            if (markPoint(point[1])) {
-                canvas.setColor(Color.BLUE);
-            } else {
-                canvas.setColor(Color.RED);
-            }
-            // Инициализировать эллипс как объект для представления маркер
-            GeneralPath path = new GeneralPath();
-            // Центр - в точке (x,y)
-            Point2D.Double center = xyToPoint(point[0], point[1]);
+    protected void paintMarkers(Graphics2D canvas)
+    {
+        formatter.setMaximumFractionDigits(2);
+        DecimalFormatSymbols dottedDouble = formatter.getDecimalFormatSymbols();
+        dottedDouble.setDecimalSeparator('.');
+        formatter.setDecimalFormatSymbols(dottedDouble);
 
-            path.moveTo(center.x - 5, center.y);
-            path.lineTo(center.x , center.y + 5);
+        canvas.setStroke(markerStroke);
+        canvas.setColor(Color.BLACK);
+        for (int i = 0; i < graphicsData.length; i++)
+        {
+            if (i != 0 && i != graphicsData.length - 1 &&((graphicsData[i-1][1] < graphicsData[i][1] && graphicsData[i][1] > graphicsData[i+1][1]) || (graphicsData[i-1][1] > graphicsData[i][1] && graphicsData[i][1] < graphicsData[i+1][1])))
+            {
+                canvas.setColor(Color.RED);
+                FontRenderContext extr = canvas.getFontRenderContext();
+                Rectangle2D bounds = axisFont.getStringBounds("extr", extr);
+                Point2D.Double labelPos = xyToPoint(graphicsData[i][0], graphicsData[i][1]);
+                canvas.drawString("extr ("+ graphicsData[i][0] +" , " + graphicsData[i][1]+ " )", (float) labelPos.getX() + 10, (float) (labelPos.getY() - bounds.getY()));
+            }
+            else if (markPoint(graphicsData[i][1]))
+                canvas.setColor(Color.BLUE);
+            else
+                canvas.setColor(Color.BLACK);
+
+            GeneralPath path = new GeneralPath();
+            Point2D.Double center = xyToPoint(graphicsData[i][0], graphicsData[i][1]);
+            path.moveTo(center.x, center.y + 5);
             path.lineTo(center.x + 5, center.y);
             path.lineTo(center.x, center.y - 5);
-            path.closePath();
+            path.lineTo(center.x - 5, center.y);
+            path.lineTo(center.x, center.y + 5);
             canvas.draw(path);
         }
     }

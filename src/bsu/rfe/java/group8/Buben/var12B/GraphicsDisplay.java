@@ -89,7 +89,7 @@ public class GraphicsDisplay extends JPanel{
                 this.maxY = ((Double[])graphicsData.get(i))[1].doubleValue();
             }
         }
-
+        zoomToRegion(minX, maxY, maxX, minY);
     }
     public void setShowAxis(boolean showAxis) {
         this.showAxis = showAxis;
@@ -98,6 +98,35 @@ public class GraphicsDisplay extends JPanel{
     public void setShowMarkers(boolean showMarkers) {
         this.showMarkers = showMarkers;
         repaint();
+    }
+
+    public void displayGraphics(ArrayList<Double[]> graphicsData) {
+        this.graphicsData = graphicsData;
+        this.originalData = new ArrayList(graphicsData.size());
+        Iterator var3 = graphicsData.iterator();
+
+        while(var3.hasNext()) {
+            Double[] point = (Double[])var3.next();
+            Double[] newPoint = new Double[]{new Double(point[0]), new Double(point[1])};
+            this.originalData.add(newPoint);
+        }
+
+        this.minX = ((Double[])graphicsData.get(0))[0];
+        this.maxX = ((Double[])graphicsData.get(graphicsData.size() - 1))[0];
+        this.minY = ((Double[])graphicsData.get(0))[1];
+        this.maxY = this.minY;
+
+        for(int i = 1; i < graphicsData.size(); ++i) {
+            if (((Double[])graphicsData.get(i))[1] < this.minY) {
+                this.minY = ((Double[])graphicsData.get(i))[1];
+            }
+
+            if (((Double[])graphicsData.get(i))[1] > this.maxY) {
+                this.maxY = ((Double[])graphicsData.get(i))[1];
+            }
+        }
+
+        this.zoomToRegion(this.minX, this.maxY, this.maxX, this.minY);
     }
     // Метод отображения всего компонента, содержащего график
     public void paintComponent(Graphics g) {
@@ -114,6 +143,14 @@ public class GraphicsDisplay extends JPanel{
         }
     }
 
+    public void zoomToRegion(double x1, double y1, double x2, double y2) {
+        this.viewport[0][0] = x1;
+        this.viewport[0][1] = y1;
+        this.viewport[1][0] = x2;
+        this.viewport[1][1] = y2;
+        this.repaint();
+    }
+
     private void paintSelection(Graphics2D canvas) {
         if (this.scaleMode) {
             canvas.setStroke(this.selectionStroke);
@@ -124,7 +161,7 @@ public class GraphicsDisplay extends JPanel{
 
     private void paintLabels(Graphics2D canvas)
     {
-        
+
     }
 
     // Отрисовка графика по прочитанным координатам
@@ -133,29 +170,21 @@ public class GraphicsDisplay extends JPanel{
         canvas.setStroke(graphicsStroke);
         // Выбрать цвет линии
         canvas.setColor(Color.PINK);
-        /* Будем рисовать линию графика как путь, состоящий из множества
-        сегментов (GeneralPath)
-        * Начало пути устанавливается в первую точку графика, после чего
-        прямой соединяется со
-        * следующими точками
-        */
-        GeneralPath graphics = new GeneralPath();
-        for (int i=0; i<graphicsData.length; i++) {
-            // Преобразовать значения (x,y) в точку на экране point
-            Point2D.Double point = xyToPoint(graphicsData[i][0],
-                    graphicsData[i][1]);
-            if (i>0) {
-                // Не первая итерация цикла - вести линию в точку point
-                graphics.lineTo(point.getX(), point.getY());
-            }
-            else
-                {
-                // Первая итерация цикла - установить начало пути в точку point
-                graphics.moveTo(point.getX(), point.getY());
+        Double currentX = null;
+        Double currentY = null;
+        for (Double[] point : this.graphicsData)
+        {
+            if ((point[0].doubleValue() >= this.viewport[0][0]) && (point[1].doubleValue() <= this.viewport[0][1]) &&
+                    (point[0].doubleValue() <= this.viewport[1][0]) && (point[1].doubleValue() >= this.viewport[1][1]))
+            {
+                if ((currentX != null) && (currentY != null)) {
+                    canvas.draw(new Line2D.Double(xyToPoint(currentX.doubleValue(), currentY.doubleValue()),
+                            xyToPoint(point[0].doubleValue(), point[1].doubleValue())));
+                }
+                currentX = point[0];
+                currentY = point[1];
             }
         }
-        // Отобразить график
-        canvas.draw(graphics);
     }
     private boolean markPoint(double y) {
         int n = (int) y;
@@ -172,27 +201,17 @@ public class GraphicsDisplay extends JPanel{
     // Отображение маркеров точек, по которым рисовался график
     protected void paintMarkers(Graphics2D canvas)
     {
-        DecimalFormat tempX = new DecimalFormat("##.##");
-        DecimalFormat tempY = new DecimalFormat("##.##");
         canvas.setStroke(markerStroke);
         canvas.setColor(Color.BLACK);
-        for (int i = 0; i < graphicsData.length; i++)
+        for (Double[] point : graphicsData)
         {
-            if (i != 0 && i != graphicsData.length - 1 &&((graphicsData[i-1][1] < graphicsData[i][1] && graphicsData[i][1] > graphicsData[i+1][1]) || (graphicsData[i-1][1] > graphicsData[i][1] && graphicsData[i][1] < graphicsData[i+1][1])))
-            {
-                canvas.setColor(Color.RED);
-                FontRenderContext extr = canvas.getFontRenderContext();
-                Rectangle2D bounds = axisFont.getStringBounds("extr", extr);
-                Point2D.Double labelPos = xyToPoint(graphicsData[i][0], graphicsData[i][1]);
-                canvas.drawString("extr ("+ tempX.format(graphicsData[i][0]) +" , " + tempY.format(graphicsData[i][1]) + " )", (float) labelPos.getX() + 10, (float) (labelPos.getY() - bounds.getY()));
-            }
-            else if (markPoint(graphicsData[i][1]))
+            if (markPoint(point[1]))
                 canvas.setColor(Color.BLUE);
             else
                 canvas.setColor(Color.BLACK);
 
             GeneralPath path = new GeneralPath();
-            Point2D.Double center = xyToPoint(graphicsData[i][0], graphicsData[i][1]);
+            Point2D.Double center = xyToPoint(point[0], point[1]);
             path.moveTo(center.x, center.y + 5);
             path.lineTo(center.x + 5, center.y);
             path.lineTo(center.x, center.y - 5);
@@ -215,55 +234,25 @@ public class GraphicsDisplay extends JPanel{
         // Создать объект контекста отображения текста - для получения характеристик устройства (экрана)
         FontRenderContext context = canvas.getFontRenderContext();
         // Определить, должна ли быть видна ось Y на графике
-        if (minX<=0.0 && maxX>=0.0) {
-            // Она должна быть видна, если левая граница показываемой области (minX) <= 0.0,
-            // а правая (maxX) >= 0.0
-            // Сама ось - это линия между точками (0, maxY) и (0, minY)
-            canvas.draw(new Line2D.Double(xyToPoint(0, maxY), xyToPoint(0, minY)));
-            // Стрелка оси Y
-            GeneralPath arrow = new GeneralPath();
-            // Установить начальную точку ломаной точно на верхний конец оси Y
-            Point2D.Double lineEnd = xyToPoint(0, maxY);
-            arrow.moveTo(lineEnd.getX(), lineEnd.getY());
-            // Вести левый "скат" стрелки в точку с относительными координатами (5,20)
-            arrow.lineTo(arrow.getCurrentPoint().getX()+5, arrow.getCurrentPoint().getY()+20);
-            // Вести нижнюю часть стрелки в точку с относительными координатами (-10, 0)
-            arrow.lineTo(arrow.getCurrentPoint().getX()-10,  arrow.getCurrentPoint().getY());
-            // Замкнуть треугольник стрелки
-            arrow.closePath();
-            canvas.draw(arrow); // Нарисовать стрелку
-            canvas.fill(arrow); // Закрасить стрелку
-            // Нарисовать подпись к оси Y
-            // Определить, сколько места понадобится для надписи "y"
-            Rectangle2D bounds = axisFont.getStringBounds("y", context);
-            Point2D.Double labelPos = xyToPoint(0, maxY);
-            // Вывести надпись в точке с вычисленными координатами
-            canvas.drawString("y", (float)labelPos.getX() + 10, (float)(labelPos.getY() - bounds.getY()));
+        if (!(viewport[0][0] > 0|| viewport[1][0] < 0)) {
+            canvas.draw(new Line2D.Double(xyToPoint(0, viewport[0][1]), xyToPoint(0, viewport[1][1])));
+            canvas.draw(new Line2D.Double(xyToPoint(-(viewport[1][0] - viewport[0][0]) * 0.0025, viewport[0][1] - (viewport[0][1] - viewport[1][1]) * 0.015),xyToPoint(0,viewport[0][1])));
+            canvas.draw(new Line2D.Double(xyToPoint((viewport[1][0] - viewport[0][0]) * 0.0025, viewport[0][1] - (viewport[0][1] - viewport[1][1]) * 0.015), xyToPoint(0, viewport[0][1])));
+            Rectangle2D bounds = axisFont.getStringBounds("y",context);
+            Point2D.Double labelPos = xyToPoint(0.0, viewport[0][1]);
+            canvas.drawString("y",(float)labelPos.x + 10,(float)(labelPos.y + bounds.getHeight() / 2));
         }
         // Определить, должна ли быть видна ось X на графике
-        if (minY<=0.0 && maxY>=0.0) {
-            // Она должна быть видна, если верхняя граница показываемой области (maxX) >= 0.0,
-            // а нижняя (minY) <= 0.0
-                    canvas.draw(new Line2D.Double(xyToPoint(minX, 0), xyToPoint(maxX, 0)));
-            // Стрелка оси X
-            GeneralPath arrow = new GeneralPath();
-            // Установить начальную точку ломаной точно на правый конец оси X
-            Point2D.Double lineEnd = xyToPoint(maxX, 0);
-            arrow.moveTo(lineEnd.getX(), lineEnd.getY());
-            // Вести верхний "скат" стрелки в точку с относительными координатами (-20,-5)
-            arrow.lineTo(arrow.getCurrentPoint().getX()-20, arrow.getCurrentPoint().getY()-5);
-            // Вести левую часть стрелки в точку с относительными координатами (0, 10)
-            arrow.lineTo(arrow.getCurrentPoint().getX(),  arrow.getCurrentPoint().getY()+10);
-            // Замкнуть треугольник стрелки
-            arrow.closePath();
-            canvas.draw(arrow); // Нарисовать стрелку
-            canvas.fill(arrow); // Закрасить стрелку
-            // Нарисовать подпись к оси X
-            // Определить, сколько места понадобится для надписи "x"
-            Rectangle2D bounds = axisFont.getStringBounds("x", context);
-            Point2D.Double labelPos = xyToPoint(maxX, 0);
-            // Вывести надпись в точке с вычисленными координатами
-            canvas.drawString("x", (float)(labelPos.getX() - bounds.getWidth() - 10), (float)(labelPos.getY() + bounds.getY()));
+        if (!(viewport[1][1] > 0.0D || viewport[0][1] < 0.0D)) {
+            canvas.draw(new Line2D.Double(xyToPoint(viewport[0][0],0),
+                    xyToPoint(viewport[1][0],0)));
+            canvas.draw(new Line2D.Double(xyToPoint(viewport[1][0] - (viewport[1][0] - viewport[0][0]) * 0,
+                    (viewport[0][1] - viewport[1][1]) * 0.005), xyToPoint(viewport[1][0], 0)));
+            canvas.draw(new Line2D.Double(xyToPoint(viewport[1][0] - (viewport[1][0] - viewport[0][0]) * 0.01,
+                    -(viewport[0][1] - viewport[1][1]) * 0.005), xyToPoint(viewport[1][0], 0)));
+            Rectangle2D bounds = axisFont.getStringBounds("x",context);
+            Point2D.Double labelPos = xyToPoint(this.viewport[1][0],0.0D);
+            canvas.drawString("x",(float)(labelPos.x - bounds.getWidth() - 10),(float)(labelPos.y - bounds.getHeight() / 2));
         }
     }
     /* Метод-помощник, осуществляющий преобразование координат.
@@ -275,21 +264,32 @@ public class GraphicsDisplay extends JPanel{
     */
     protected Point2D.Double xyToPoint(double x, double y) {
         // Вычисляем смещение X от самой левой точки (minX)
-        double deltaX = x - minX;
+        double deltaX = x - viewport[0][0];
         // Вычисляем смещение Y от точки верхней точки (maxY)
-        double deltaY = maxY - y;
-        return new Point2D.Double(deltaX*scale, deltaY*scale);
+        double deltaY = viewport[0][1] - y;
+        return new Point2D.Double(deltaX*scaleX, deltaY*scaleY);
     }
     /* Метод-помощник, возвращающий экземпляр класса Point2D.Double
      * смещѐнный по отношению к исходному на deltaX, deltaY
      * К сожалению, стандартного метода, выполняющего такую задачу, нет.
      */
-    protected Point2D.Double shiftPoint(Point2D.Double src, double deltaX, double deltaY) {
-        // Инициализировать новый экземпляр точки
-        Point2D.Double dest = new Point2D.Double();
-        // Задать её координаты как координаты существующей точки + заданные смещения
-        dest.setLocation(src.getX() + deltaX, src.getY() + deltaY);
-        return dest;
+    protected double[] translatePointToXY(int x, int y)
+    {
+        return new double[] { this.viewport[0][0] + x / this.scaleX, this.viewport[0][1] - y / this.scaleY };
     }
+
+    protected int findSelectedPoint(int x, int y)
+    {
+        if (graphicsData == null) return -1;
+        int pos = 0;
+        for (Double[] point : graphicsData) {
+            Point2D.Double screenPoint = xyToPoint(point[0].doubleValue(), point[1].doubleValue());
+            double distance = (screenPoint.getX() - x) * (screenPoint.getX() - x) + (screenPoint.getY() - y) * (screenPoint.getY() - y);
+            if (distance < 100) return pos;
+            pos++;
+        }
+        return -1;
+    }
+
 
 }

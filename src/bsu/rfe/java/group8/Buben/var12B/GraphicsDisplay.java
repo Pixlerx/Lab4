@@ -13,8 +13,6 @@ import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.text.NumberFormat;
 import javax.swing.JPanel;
 
 public class GraphicsDisplay extends JPanel{
@@ -85,7 +83,7 @@ public class GraphicsDisplay extends JPanel{
         minX = graphicsData[0][0];
         maxX = graphicsData[graphicsData.length-1][0];
         minY = graphicsData[0][1];
-        maxY = minY + 20;
+        maxY = minY;
         // Найти минимальное и максимальное значение функции
         for (int i = 1; i<graphicsData.length; i++) {
             if (graphicsData[i][1]<minY) {
@@ -307,7 +305,7 @@ public class GraphicsDisplay extends JPanel{
     protected Point2D.Double shiftPoint(Point2D.Double src, double deltaX, double deltaY) {
         // Инициализировать новый экземпляр точки
         Point2D.Double dest = new Point2D.Double();
-        // Задать еѐ координаты как координаты существующей точки + заданные смещения
+        // Задать её координаты как координаты существующей точки + заданные смещения
         dest.setLocation(src.getX() + deltaX, src.getY() + deltaY);
         return dest;
     }

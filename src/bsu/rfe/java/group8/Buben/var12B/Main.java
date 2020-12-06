@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JCheckBoxMenuItem;
@@ -29,6 +30,7 @@ public class Main extends JFrame {
     // Пункты меню
     private JCheckBoxMenuItem showAxisMenuItem;
     private JCheckBoxMenuItem showMarkersMenuItem;
+    private JMenuItem resetGraphicsMenuItem;
     // Компонент-отображатель графика
     private GraphicsDisplay display = new GraphicsDisplay();
     // Флаг, указывающий на загруженность данных графика
@@ -102,6 +104,14 @@ public class Main extends JFrame {
         graphicsMenu.add(showMarkersMenuItem);
         // Элемент по умолчанию включен (отмечен флажком)
         showMarkersMenuItem.setSelected(true);
+        Action resetGraphicsAction = new AbstractAction("Отменить все изменения") {
+            public void actionPerformed(ActionEvent event) {
+                Main.this.display.reset();
+            }
+        };
+        resetGraphicsMenuItem = new JMenuItem(resetGraphicsAction);
+        graphicsMenu.add(resetGraphicsMenuItem);
+        resetGraphicsMenuItem.setEnabled(false);
         // Зарегистрировать обработчик событий, связанных с меню "График"
         graphicsMenu.addMenuListener(new GraphicsMenuListener());
         // Установить GraphicsDisplay в цент граничной компоновки
@@ -111,32 +121,16 @@ public class Main extends JFrame {
     // Считывание данных графика из существующего файла
     protected void openGraphics(File selectedFile) {
         try {
-            // Шаг 1 - Открыть поток чтения данных, связанный с входным файловым потоком
             DataInputStream in = new DataInputStream(new FileInputStream(selectedFile));
-            /* Шаг 2 - Зная объём данных в потоке ввода можно вычислить,
-            * сколько памяти нужно зарезервировать в массиве:
-            * Всего байт в потоке - in.available() байт;
-            * Размер одного числа Double - Double.SIZE бит, или
-            Double.SIZE/8 байт;
-            * Так как числа записываются парами, то число пар меньше в
-            2 раза
-            */
-            Double[][] graphicsData = new Double[in.available() / (Double.SIZE / 8) / 2][];
-            // Шаг 3 - Цикл чтения данных (пока в потоке есть данные)
-            int i = 0;
+            ArrayList graphicsData = new ArrayList(50);
             while (in.available() > 0) {
-                // Первой из потока читается координата точки X
-                Double x = in.readDouble();
-                // Затем - значение графика Y в точке X
-                Double y = in.readDouble();
-                // Прочитанная пара координат добавляется в массив
-                graphicsData[i++] = new Double[]{x, y};
+                Double x = Double.valueOf(in.readDouble());
+                Double y = Double.valueOf(in.readDouble());
+                graphicsData.add(new Double[] { x, y });
             }
-            // Шаг 4 - Проверка, имеется ли в списке в результате чтения хотя бы одна пара координат
-            if (graphicsData != null && graphicsData.length > 0) {
-                // Да - установить флаг загруженности данных
+            if (graphicsData.size() > 0) {
                 fileLoaded = true;
-                // Вызывать метод отображения графика
+                resetGraphicsMenuItem.setEnabled(true);
                 display.showGraphics(graphicsData);
             }
             // Шаг 5 - Закрыть входной поток

@@ -243,21 +243,37 @@ public class GraphicsDisplay extends JPanel{
     {
         canvas.setStroke(markerStroke);
         canvas.setColor(Color.BLACK);
-        for (Double[] point : graphicsData)
+        for (int i = 0; i < graphicsData.size(); i++)
         {
-            if (markPoint(point[1]))
+            Boolean flag = true;
+            if (i != 0 && i != graphicsData.size() - 1 &&((graphicsData.get(i-1)[1] < graphicsData.get(i)[1] && graphicsData.get(i)[1] > graphicsData.get(i+1)[1]) || (graphicsData.get(i-1)[1] > graphicsData.get(i)[1] && graphicsData.get(i)[1] < graphicsData.get(i+1)[1])))
+            {
+                canvas.setColor(Color.RED);
+                flag = false;
+            }
+            else if (markPoint(graphicsData.get(i)[1]))
                 canvas.setColor(Color.BLUE);
             else
                 canvas.setColor(Color.BLACK);
 
             GeneralPath path = new GeneralPath();
-            Point2D.Double center = xyToPoint(point[0], point[1]);
+            Point2D.Double center = xyToPoint(graphicsData.get(i)[0], graphicsData.get(i)[1]);
             path.moveTo(center.x, center.y + 5);
             path.lineTo(center.x + 5, center.y);
             path.lineTo(center.x, center.y - 5);
             path.lineTo(center.x - 5, center.y);
             path.lineTo(center.x, center.y + 5);
             canvas.draw(path);
+            if (flag == false)
+            {
+                DecimalFormat tempX = new DecimalFormat("##.##");
+                DecimalFormat tempY = new DecimalFormat("##.##");
+                FontRenderContext context = canvas.getFontRenderContext();
+                Rectangle2D bounds = axisFont.getStringBounds("extr", context);
+                Point2D.Double labelPos = xyToPoint(graphicsData.get(i)[0], graphicsData.get(i)[1]);
+                canvas.drawString("extr", (float) labelPos.getX() + 5, (float) (labelPos.getY() - bounds.getY()));
+                canvas.drawString("("+tempX.format(graphicsData.get(i)[0])+"; "+ tempY.format(graphicsData.get(i)[1])+")", (float) labelPos.getX() + 5, (float) (labelPos.getY() - bounds.getY()) - 20);
+            }
         }
     }
 

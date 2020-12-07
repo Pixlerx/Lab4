@@ -73,7 +73,7 @@ public class Main extends JFrame {
             public void actionPerformed(ActionEvent event) {
                 // свойство showAxis класса GraphicsDisplay истина, если элемент меню
                 // showAxisMenuItem отмечен флажком, и ложь - в противном случае
-                display.setShowAxis(showAxisMenuItem.isSelected());
+                Main.this.display.setShowAxis(showAxisMenuItem.isSelected());
             }
         };
         JMenu refMenu = new JMenu("Справка");
@@ -97,7 +97,7 @@ public class Main extends JFrame {
         Action showMarkersAction = new AbstractAction("Показывать маркеры точек") {
             public void actionPerformed(ActionEvent event) {
                 // по аналогии с showAxisMenuItem
-                display.setShowMarkers(showMarkersMenuItem.isSelected());
+                Main.this.display.setShowMarkers(showMarkersMenuItem.isSelected());
             }
         };
         showMarkersMenuItem = new JCheckBoxMenuItem(showMarkersAction);

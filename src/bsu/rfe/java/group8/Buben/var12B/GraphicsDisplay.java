@@ -9,8 +9,6 @@ import java.awt.Graphics2D;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
-import java.awt.Paint;
-import java.awt.Stroke;
 import java.awt.font.FontRenderContext;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Line2D;
@@ -135,10 +133,14 @@ public class GraphicsDisplay extends JPanel{
         this.scaleY = this.getSize().getHeight() / (this.viewport[0][1] - this.viewport[1][1]);
         if (this.graphicsData != null && this.graphicsData.size() != 0) {
             Graphics2D canvas = (Graphics2D)g;
-            this.paintAxis(canvas);
             this.paintGraphics(canvas);
-            this.paintMarkers(canvas);
-            this.paintLabels(canvas);
+                if (showAxis)
+                {
+                    paintAxis(canvas);
+                    paintLabels(canvas);
+                }
+                paintGraphics(canvas);
+                if (showMarkers) paintMarkers(canvas);
             this.paintSelection(canvas);
         }
     }
@@ -161,7 +163,45 @@ public class GraphicsDisplay extends JPanel{
 
     private void paintLabels(Graphics2D canvas)
     {
-
+        canvas.setColor(Color.BLUE);
+        canvas.setFont(this.labelsFont);
+        FontRenderContext context=canvas.getFontRenderContext();
+        double labelYPos;
+        double labelXPos;
+        if (!(viewport[1][1] >= 0 || viewport[0][1] <= 0))
+            labelYPos = 0;
+        else labelYPos = viewport[1][1];
+        if (!(viewport[0][0] >= 0 || viewport[1][0] <= 0.0D))
+            labelXPos=0;
+        else labelXPos = viewport[0][0];
+        double pos = viewport[0][0];
+        double step = (viewport[1][0] - viewport[0][0]) / 10;
+        while (pos < viewport[1][0]){
+            java.awt.geom.Point2D.Double point = xyToPoint(pos,labelYPos);
+            String label = formatter.format(pos);
+            Rectangle2D bounds = labelsFont.getStringBounds(label,context);
+            canvas.drawString(label, (float)(point.getX() + 5), (float)(point.getY() - bounds.getHeight()));
+            pos=pos + step;
+        }
+        pos = viewport[1][1];
+        step = (viewport[0][1] - viewport[1][1]) / 10.0D;
+        while (pos < viewport[0][1]){
+            Point2D.Double point = xyToPoint(labelXPos,pos);
+            String label=formatter.format(pos);
+            Rectangle2D bounds = labelsFont.getStringBounds(label,context);
+            canvas.drawString(label,(float)(point.getX() + 5),(float)(point.getY() - bounds.getHeight()));
+            pos=pos + step;
+        }
+        if (selectedMarker >= 0)
+        {
+            Point2D.Double point = xyToPoint(((Double[])graphicsData.get(selectedMarker))[0].doubleValue(),
+                    ((Double[])graphicsData.get(selectedMarker))[1].doubleValue());
+            String label = "X=" + formatter.format(((Double[])graphicsData.get(selectedMarker))[0]) +
+                    ", Y=" + formatter.format(((Double[])graphicsData.get(selectedMarker))[1]);
+            Rectangle2D bounds = labelsFont.getStringBounds(label, context);
+            canvas.setColor(Color.BLACK);
+            canvas.drawString(label, (float)(point.getX() + 5.0D), (float)(point.getY() - bounds.getHeight()));
+        }
     }
 
     // Отрисовка графика по прочитанным координатам
@@ -269,10 +309,8 @@ public class GraphicsDisplay extends JPanel{
         double deltaY = viewport[0][1] - y;
         return new Point2D.Double(deltaX*scaleX, deltaY*scaleY);
     }
-    /* Метод-помощник, возвращающий экземпляр класса Point2D.Double
-     * смещѐнный по отношению к исходному на deltaX, deltaY
-     * К сожалению, стандартного метода, выполняющего такую задачу, нет.
-     */
+     //Метод-помощник, возвращающий экземпляр класса Point2D.Double
+     //смещѐнный по отношению к исходному на deltaX, deltaY
     protected double[] translatePointToXY(int x, int y)
     {
         return new double[] { this.viewport[0][0] + x / this.scaleX, this.viewport[0][1] - y / this.scaleY };
@@ -291,5 +329,107 @@ public class GraphicsDisplay extends JPanel{
         return -1;
     }
 
+    public void reset() {
+        this.displayGraphics(this.originalData);
+    }
+
+    public class MouseHandler extends MouseAdapter {
+        public MouseHandler() {
+        }
+        //Отдаление правой кнопкой мыши
+        public void mouseClicked(MouseEvent ev) {
+            if (ev.getButton() == 3) {
+                if (GraphicsDisplay.this.undoHistory.size() > 0) {
+                    GraphicsDisplay.this.viewport = (double[][])GraphicsDisplay.this.undoHistory.get(GraphicsDisplay.this.undoHistory.size() - 1);
+                    GraphicsDisplay.this.undoHistory.remove(GraphicsDisplay.this.undoHistory.size() - 1);
+                } else {
+                    GraphicsDisplay.this.zoomToRegion(GraphicsDisplay.this.minX, GraphicsDisplay.this.maxY, GraphicsDisplay.this.maxX, GraphicsDisplay.this.minY);
+                }
+
+                GraphicsDisplay.this.repaint();
+            }
+
+        }
+        //Выделение
+        public void mousePressed(MouseEvent ev) {
+            if (ev.getButton() == 1) {
+                GraphicsDisplay.this.selectedMarker = GraphicsDisplay.this.findSelectedPoint(ev.getX(), ev.getY());
+                GraphicsDisplay.this.originalPoint = GraphicsDisplay.this.translatePointToXY(ev.getX(), ev.getY());
+                if (GraphicsDisplay.this.selectedMarker >= 0) {
+                    GraphicsDisplay.this.changeMode = true;
+                    GraphicsDisplay.this.setCursor(Cursor.getPredefinedCursor(8));
+                } else {
+                    GraphicsDisplay.this.scaleMode = true;
+                    GraphicsDisplay.this.setCursor(Cursor.getPredefinedCursor(5));
+                    GraphicsDisplay.this.selectionRect.setFrame((double)ev.getX(), (double)ev.getY(), 1.0D, 1.0D);
+                }
+
+            }
+        }
+        //Приближение
+        public void mouseReleased(MouseEvent ev) {
+            if (ev.getButton() == 1) {
+                GraphicsDisplay.this.setCursor(Cursor.getPredefinedCursor(0));
+                if (GraphicsDisplay.this.changeMode) {
+                    GraphicsDisplay.this.changeMode = false;
+                } else {
+                    GraphicsDisplay.this.scaleMode = false;
+                    double[] finalPoint = GraphicsDisplay.this.translatePointToXY(ev.getX(), ev.getY());
+                    GraphicsDisplay.this.undoHistory.add(GraphicsDisplay.this.viewport);
+                    GraphicsDisplay.this.viewport = new double[2][2];
+                    GraphicsDisplay.this.zoomToRegion(GraphicsDisplay.this.originalPoint[0], GraphicsDisplay.this.originalPoint[1], finalPoint[0], finalPoint[1]);
+                    GraphicsDisplay.this.repaint();
+                }
+
+            }
+        }
+    }
+
+    public class MouseMotionHandler implements MouseMotionListener {
+        public MouseMotionHandler() {
+        }
+        //Показывает координаты точки
+        public void mouseMoved(MouseEvent ev) {
+            GraphicsDisplay.this.selectedMarker = GraphicsDisplay.this.findSelectedPoint(ev.getX(), ev.getY());
+            if (GraphicsDisplay.this.selectedMarker >= 0) {
+                GraphicsDisplay.this.setCursor(Cursor.getPredefinedCursor(8));
+            } else {
+                GraphicsDisplay.this.setCursor(Cursor.getPredefinedCursor(0));
+            }
+
+            GraphicsDisplay.this.repaint();
+        }
+        //Штриховая линия
+        public void mouseDragged(MouseEvent ev) {
+            if (GraphicsDisplay.this.changeMode) {
+                double[] currentPoint = GraphicsDisplay.this.translatePointToXY(ev.getX(), ev.getY());
+                double newY = ((Double[])GraphicsDisplay.this.graphicsData.get(GraphicsDisplay.this.selectedMarker))[1] + (currentPoint[1] - ((Double[])GraphicsDisplay.this.graphicsData.get(GraphicsDisplay.this.selectedMarker))[1]);
+                if (newY > GraphicsDisplay.this.viewport[0][1]) {
+                    newY = GraphicsDisplay.this.viewport[0][1];
+                }
+
+                if (newY < GraphicsDisplay.this.viewport[1][1]) {
+                    newY = GraphicsDisplay.this.viewport[1][1];
+                }
+
+                ((Double[])GraphicsDisplay.this.graphicsData.get(GraphicsDisplay.this.selectedMarker))[1] = newY;
+                GraphicsDisplay.this.repaint();
+            } else {
+                double width = (double)ev.getX() - GraphicsDisplay.this.selectionRect.getX();
+                if (width < 5.0D) {
+                    width = 5.0D;
+                }
+
+                double height = (double)ev.getY() - GraphicsDisplay.this.selectionRect.getY();
+                if (height < 5.0D) {
+                    height = 5.0D;
+                }
+
+                GraphicsDisplay.this.selectionRect.setFrame(GraphicsDisplay.this.selectionRect.getX(), GraphicsDisplay.this.selectionRect.getY(), width, height);
+                GraphicsDisplay.this.repaint();
+            }
+
+        }
+    }
 
 }
